@@ -1,3 +1,30 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/1w6OS9li)
-# geracao-codigo-code-start
-Código de Start para a Geração de Código
+# Compilador para a linguagem Tpp
+
+## Descrição
+
+O código contido nesse repositório se diz respeito a um compilador feito para a linguagem Tpp, onde existem 4 funções principais para executar o processo
+de compilação, sendo elas:
+- Análise léxica (tpplex.py);
+- Análise sintática (tppparser.py);
+- Análise semântica (tppsema.py);
+- Geração de código (Em construção).
+
+## Funcionalidades
+
+O código será capaz de gerar código para a llvm, podendo ser então compilado e executado de uma linguagem tpp para linguagem executável
+
+## Pré-requisitos
+
+- Biblioteca Ply e yacc;
+- Anytree;
+- Llvmlite.
+
+## Instalação
+- Instale as dependências com o pip install ply, pip install anytree e pip install llvlite (é recomendável criar um ambiente virtual python);
+
+- Clone o repositório em sua máquina e execute.
+
+## Uso
+
+Para executar o projeto, basta executar o seguinte comando no terminal:
+python main.py tests/<nome_do_arquivo_de_teste>

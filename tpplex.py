@@ -1,5 +1,3 @@
-import sys
-import os
 from ply.lex import TOKEN
 import ply.lex as lex
 from sys import argv, exit
@@ -162,48 +160,44 @@ def t_newline(token):
 
 
 def define_column(input, lexpos):
-    begin_line = input.rfind("\n", 0, lexpos) + 1
-    return (lexpos - begin_line) + 1
+    line_start = input.rfind("\n", 0, lexpos) + 1
+    return (lexpos - line_start) + 1
 
 
 def t_error(token):
-
-    # file = token.lexer.filename
-    line = token.lineno
-    # column = define_column(token.lexer.backup_data, token.lexpos)
-    message = le.newError('ERR-LEX-INV-CHAR', valor=token.value[0])
-    # print(f"[{file}]:[{line},{column}]: {message}.")
-    print(message)
+    # line = token.lineno
+    # column = define_column(token.lexer.lexdata, token.lexpos)
+    
+    message_error = le.newError('ERR-LEX-INV-CHAR', valor=token.value[0])
+    # message_error = f"ERRO:[{line},{column}]: {message_error}."
+    
+    print(message_error)
 
     token.lexer.skip(1)
 
-    # token.lexer.has_error = True
-
-
 def main():
+    numParameters = len(argv) # Número de parâmetros
 
-    if(len(sys.argv) < 2):
-        raise TypeError(le.newError('ERR-LEX-USE'))
-
+    if numParameters != 2:
+        error = "The number of parameters is invalid. "
+        if numParameters < 2: 
+            error += "Send a .tpp file as parameter."
+            raise IOError(le.newError('ERR-LEX-INVALID-PARAMETER-NOTFOUND'))
+        raise IOError(le.newError('ERR-LEX-INVALID-PARAMETER'))
     aux = argv[1].split('.')
     if aux[-1] != 'tpp':
       raise IOError(le.newError('ERR-LEX-NOT-TPP'))
-    elif not os.path.exists(argv[1]):
-        raise IOError(le.newError('ERR-LEX-FILE-NOT-EXISTS'))
-    else:
-        data = open(argv[1])
+    data = open(argv[1])
 
-        source_file = data.read()
-        lexer.input(source_file)
+    source_file = data.read()
+    lexer.input(source_file)
 
-        # Tokenize
-        while True:
-            tok = lexer.token()
-            if not tok:
-                break      # No more input
-            #print(tok)
-            print(tok.type)
-            #print(tok.value)
+    # Tokenize
+    while True:
+      tok = lexer.token()
+      if not tok:
+        break      # No more input
+      # print(tok.type)
 
 def test(pdata):
   data = open(pdata)
@@ -225,11 +219,4 @@ def test(pdata):
 lexer = lex.lex(optimize=True, debug=True, debuglog=log)
 
 if __name__ == "__main__":
-
-    try:
-        main()
-    except Exception as e:
-        print(e)
-    except (ValueError, TypeError):
-        print(e)
-
+    main()

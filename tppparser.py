@@ -1,5 +1,15 @@
+# Autor: Marcos Bezner Rampaso
+# Entrega 2 - Implementação de Linguagens de Programação
+# Data: 20/08/2024
+# Descrição: Implementação do analisador sintático da linguagem T++. O analisador sintático
+#            é responsável por verificar se a sequência de tokens gerada pelo analisador léxico
+#            está correta de acordo com a gramática da linguagem. O analisador sintático gera
+#            uma árvore sintática que será utilizada pelo analisador semântico.
+#            O analisador sintático é implementado utilizando a ferramenta PLY (Python Lex-Yacc).
 import sys
 import os
+from myerror import MyError
+import tppsema
 
 from sys import argv, exit
 
@@ -22,8 +32,6 @@ from tpplex import tokens
 from mytree import MyNode
 from anytree.exporter import DotExporter, UniqueDotExporter
 from anytree import RenderTree, AsciiStyle
-
-from myerror import MyError
 
 error_handler = MyError('ParserErrors')
 
@@ -107,12 +115,15 @@ def p_declaracao_variaveis(p):
 #              |
 #         (atribuicao)
 
-
+def p_declaracao_variaveis_error(p):
+    """declaracao_variaveis : tipo DOIS_PONTOS error"""
+    p[0] = MyNode(name='ERR-SYN-DECLARACAO-VARIAVEIS', type='ERR-SYN-DECLARACAO-VARIAVEIS')
+    print(error_handler.newError(False, 'ERR-SYN-DECLARACAO-VARIAVEIS'))
+    
 def p_inicializacao_variaveis(p):
     """inicializacao_variaveis : atribuicao"""
 
-    pai = MyNode(name='inicializacao_variaveis',
-                 type='INICIALIZACAO_VARIAVEIS')
+    pai = MyNode(name='inicializacao_variaveis', type='INICIALIZACAO_VARIAVEIS')
     p[0] = pai
     p[1].parent = pai
 
@@ -131,6 +142,12 @@ def p_lista_variaveis(p):
     else:
        p[1].parent = pai
 
+def p_lista_variaveis_error(p):
+    """lista_variaveis : error VIRGULA var
+                        | lista_variaveis VIRGULA error
+    """
+    p[0] = MyNode(name='ERR-SYN-LISTA-VARIAVEIS', type='ERR-SYN-LISTA-VARIAVEIS')
+    print(error_handler.newError(False, 'ERR-SYN-LISTA-VARIAVEIS'))   
 
 def p_var(p):
     """var : ID
@@ -145,6 +162,12 @@ def p_var(p):
     if len(p) > 2:
         p[2].parent = pai
 
+def p_var_error(p):
+    """var : error indice
+            | ID error
+    """
+    p[0] = MyNode(name='ERR-SYN-VARIAVEL', type='ERR-SYN-VARIAVEL')
+    print(error_handler.newError(False, 'ERR-SYN-VARIAVEL'))
 
 def p_indice(p):
     """indice : indice ABRE_COLCHETE expressao FECHA_COLCHETE
@@ -177,29 +200,18 @@ def p_indice(p):
 
 
 def p_indice_error(p):
-    """indice : ABRE_COLCHETE error FECHA_COLCHETE
+    """indice : error ABRE_COLCHETE expressao FECHA_COLCHETE
+                | indice error expressao FECHA_COLCHETE
                 | indice ABRE_COLCHETE error FECHA_COLCHETE
+                | indice ABRE_COLCHETE expressao error
+                | indice ABRE_COLCHETE error
+                | error expressao FECHA_COLCHETE
+                | ABRE_COLCHETE error FECHA_COLCHETE
+                | ABRE_COLCHETE expressao error
+                | ABRE_COLCHETE error
     """
-
-    print("Erro na definicao do indice. Expressao ou indice.")
-
-    print("Erro:p[0]:{p0}, p[1]:{p1}, p[2]:{p2}, p[3]:{p3}".format(
-        p0=p[0], p1=p[1], p2=p[2], p3=p[3]))
-    error_line = p.lineno(2)
-    father = MyNode(name='ERROR::{}'.format(error_line), type='ERROR')
-    logging.error(
-        "Syntax error parsing index rule at line {}".format(error_line))
-    parser.errok()
-    p[0] = father
-    # if len(p) == 4:
-    #     p[1] = new_node('ABRECOLCHETES', father)
-    #     p[2].parent = father
-    #     p[3] = new_node('FECHACOLCHETES', father)
-    # else:
-    #     p[1].parent = father
-    #     p[2] = new_node('ABRECOLCHETES', father)
-    #     p[3].parent = father
-    #     p[4] = new_node('FECHACOLCHETES', father)
+    p[0] = MyNode(name='ERR-SYN-VARIAVEL', type='ERR-SYN-VARIAVEL')
+    print(error_handler.newError(False, 'ERR-SYN-VARIAVEL'))
 
 
 # Sub-árvore:
@@ -235,6 +247,13 @@ def p_declaracao_funcao(p):
     if len(p) == 3:
         p[2].parent = pai
 
+def p_declaracao_funcao_error(p):
+    """declaracao_funcao : error cabecalho 
+                        | tipo error
+                        | error 
+    """
+    p[0] = MyNode(name='ERR-SYN-DECLARACAO-FUNCAO', type='ERR-SYN-DECLARACAO-FUNCAO')
+    print(error_handler.newError(False, 'ERR-SYN-DECLARACAO-FUNCAO'))
 
 def p_cabecalho(p):
     """cabecalho : ID ABRE_PARENTESE lista_parametros FECHA_PARENTESE corpo FIM"""
@@ -264,10 +283,16 @@ def p_cabecalho(p):
 
 
 def p_cabecalho_error(p):
-    """cabecalho : ID ABRE_PARENTESE error FECHA_PARENTESE corpo FIM
+    """cabecalho : error ABRE_PARENTESE lista_parametros FECHA_PARENTESE corpo FIM
+                | ID error lista_parametros FECHA_PARENTESE corpo FIM
+                | ID ABRE_PARENTESE error FECHA_PARENTESE corpo FIM
+                | ID ABRE_PARENTESE lista_parametros error corpo FIM
                 | ID ABRE_PARENTESE lista_parametros FECHA_PARENTESE error FIM
-                | error ABRE_PARENTESE lista_parametros FECHA_PARENTESE corpo FIM 
+                | ID ABRE_PARENTESE lista_parametros FECHA_PARENTESE corpo error
+                | ID ABRE_PARENTESE lista_parametros FECHA_PARENTESE corpo
     """
+    p[0] = MyNode(name='ERR-SYN-CABECALHO', type='ERR-SYN-CABECALHO')
+    print(error_handler.newError(False, 'ERR-SYN-CABECALHO'))
 
 def p_lista_parametros(p):
     """lista_parametros : lista_parametros VIRGULA parametro
@@ -284,6 +309,16 @@ def p_lista_parametros(p):
         filho_sym2 = MyNode(name=',', type='SIMBOLO', parent=filho2)
         p[2] = filho2
         p[3].parent = pai
+
+def p_lista_parametros_error(p):
+    """lista_parametros : error VIRGULA parametro
+                    | vazio VIRGULA parametro
+                    | lista_parametros VIRGULA error
+                    | error
+    """
+    p[0] = MyNode(name='ERR-SYN-LISTA-PARAMETROS', type='ERR-SYN-LISTA-PARAMETROS')
+    print(error_handler.newError(False, 'ERR-SYN-LISTA-PARAMETROS'))
+
 
 
 def p_parametro(p):
@@ -313,11 +348,15 @@ def p_parametro(p):
 
 
 def p_parametro_error(p):
-    """parametro : tipo error ID
-                | error ID
+    """parametro : error DOIS_PONTOS ID
+                | tipo error ID
+                | tipo DOIS_PONTOS error
+                | error ABRE_COLCHETE FECHA_COLCHETE
                 | parametro error FECHA_COLCHETE
                 | parametro ABRE_COLCHETE error
     """
+    p[0] = MyNode(name='ERR-SYN-PARAMETRO', type='ERR-SYN-PARAMETRO')
+    print(error_handler.newError(False, 'ERR-SYN-PARAMETRO'))
 
 
 def p_corpo(p):
@@ -332,19 +371,32 @@ def p_corpo(p):
     if len(p) > 2:
         p[2].parent = pai
 
+def p_corpo_error(p):
+    """corpo : error acao
+            | corpo error
+    """
+    p[0] = MyNode(name='ERR-SYN-CORPO', type='ERR-SYN-CORPO')
+    print(error_handler.newError(False, 'ERR-SYN-CORPO'))
 
 def p_acao(p):
     """acao : expressao
-        | declaracao_variaveis
-        | se
-        | repita
-        | leia
-        | escreva
-        | retorna
+            | declaracao_variaveis
+            | se
+            | repita
+            | leia
+            | escreva
+            | retorna
+            | error     
     """
     pai = MyNode(name='acao', type='ACAO')
     p[0] = pai
-    p[1].parent = pai
+
+    if p[1] == 'error':
+        error_message = error_handler.newError(False, 'ERR-SYN-ACAO')
+        raise IOError(error_message)
+    else:
+        p[1].parent = pai
+
 
 
 
@@ -394,12 +446,20 @@ def p_se(p):
 
 def p_se_error(p):
     """se : error expressao ENTAO corpo FIM
+        | SE error ENTAO corpo FIM
         | SE expressao error corpo FIM
+        | SE expressao ENTAO error FIM
+        | SE expressao ENTAO corpo error
         | error expressao ENTAO corpo SENAO corpo FIM
+        | SE error ENTAO corpo SENAO corpo FIM
         | SE expressao error corpo SENAO corpo FIM
+        | SE expressao ENTAO error SENAO corpo FIM
         | SE expressao ENTAO corpo error corpo FIM
-        | SE expressao ENTAO corpo SENAO corpo
+        | SE expressao ENTAO corpo SENAO error FIM
+        | SE expressao ENTAO corpo SENAO corpo error
     """
+    p[0] = MyNode(name='ERR-SYN-SE', type='ERR-SYN-SE')
+    print(error_handler.newError(False, 'ERR-SYN-SE'))
 
 
 def p_repita(p):
@@ -423,8 +483,13 @@ def p_repita(p):
 
 def p_repita_error(p):
     """repita : error corpo ATE expressao
+            | REPITA error ATE expressao
             | REPITA corpo error expressao
+            | REPITA corpo ATE error
     """
+    p[0] = MyNode(name='ERR-SYN-REPITA', type='ERR-SYN-REPITA')
+    print(error_handler.newError(False, 'ERR-SYN-REPITA'))
+
 
 def p_atribuicao(p):
     """atribuicao : var ATRIBUICAO expressao"""
@@ -439,6 +504,14 @@ def p_atribuicao(p):
     p[2] = filho2
 
     p[3].parent = pai
+
+def p_atribuicao_error(p):
+    """atribuicao : error ATRIBUICAO expressao
+            | var error expressao
+            | var ATRIBUICAO error
+    """
+    p[0] = MyNode(name='ERR-SYN-ATRIBUICAO', type='ERR-SYN-ATRIBUICAO')
+    print(error_handler.newError(False, 'ERR-SYN-ATRIBUICAO'))
 
 
 def p_leia(p):
@@ -463,8 +536,12 @@ def p_leia(p):
 
 
 def p_leia_error(p):
-    """leia : LEIA ABRE_PARENTESE error FECHA_PARENTESE
+    """leia :  LEIA error expressao FECHA_PARENTESE
+            | LEIA ABRE_PARENTESE error FECHA_PARENTESE
+            | LEIA ABRE_PARENTESE expressao error
     """
+    p[0] = MyNode(name='ERR-SYN-LEIA', type='ERR-SYN-LEIA')
+    print(error_handler.newError(False, 'ERR-SYN-LEIA'))
 
 
 def p_escreva(p):
@@ -487,6 +564,14 @@ def p_escreva(p):
     filho_sym4 = MyNode(name=')', type='SIMBOLO', parent=filho4)
     p[4] = filho4
 
+def p_escreva_error(p):
+    """escreva : ESCREVA error expressao FECHA_PARENTESE
+                | ESCREVA ABRE_PARENTESE error FECHA_PARENTESE
+                | ESCREVA ABRE_PARENTESE expressao error
+    """
+    p[0] = MyNode(name='ERR-SYN-ESCREVA', type='ERR-SYN-ESCREVA')
+    print(error_handler.newError(False, 'ERR-SYN-ESCREVA'))
+
 
 def p_retorna(p):
     """retorna : RETORNA ABRE_PARENTESE expressao FECHA_PARENTESE"""
@@ -508,6 +593,15 @@ def p_retorna(p):
     filho_sym4 = MyNode(name=')', type='SIMBOLO', parent=filho4)
     p[4] = filho4
 
+def p_retorna_error(p):
+    """retorna : RETORNA error expressao FECHA_PARENTESE
+                | RETORNA ABRE_PARENTESE error FECHA_PARENTESE
+                | RETORNA ABRE_PARENTESE expressao error
+    """
+
+    p[0] = MyNode(name='ERR-SYN-RETORNA', type='ERR-SYN-RETORNA')
+    print(error_handler.newError(False, 'ERR-SYN-RETORNA'))
+
 
 def p_expressao(p):
     """expressao : expressao_logica
@@ -520,7 +614,7 @@ def p_expressao(p):
 
 def p_expressao_logica(p):
     """expressao_logica : expressao_simples
-                    | expressao_logica operador_logico expressao_simples
+                        | expressao_logica operador_logico expressao_simples
     """
     pai = MyNode(name='expressao_logica', type='EXPRESSAO_LOGICA')
     p[0] = pai
@@ -529,6 +623,14 @@ def p_expressao_logica(p):
     if len(p) > 2:
         p[2].parent = pai
         p[3].parent = pai
+
+def p_error_expressao_logica(p):
+    """expressao_logica : error operador_logico expressao_simples
+                        | expressao_logica error expressao_simples
+                        | expressao_logica operador_logico error
+        """
+    p[0] = MyNode(name='ERR-SYN-OPERADOR-LOGICO', type='ERR-SYN-OPERADOR-LOGICO')
+    print(error_handler.newError(False, 'ERR-SYN-OPERADOR-LOGICO'))
 
 
 def p_expressao_simples(p):
@@ -661,6 +763,12 @@ def p_operador_logico(p):
         p[0] = MyNode(name='operador_logico',
                       type='OPERADOR_SOMA', children=[filho])
 
+def p_error_operador_logico(p):
+    """operador_logico : E error
+                    | OU error
+    """
+    p[0] = MyNode(name='ERR-SYN-OPERADOR-LOGICO', type='ERR-SYN-OPERADOR-LOGICO')
+    print(error_handler.newError(False, 'ERR-SYN-OPERADOR-LOGICO'))
 
 def p_operador_negacao(p):
     """operador_negacao : NAO"""
@@ -670,6 +778,11 @@ def p_operador_negacao(p):
         negacao_lexema = MyNode(name=p[1], type='SIMBOLO', parent=filho)
         p[0] = MyNode(name='operador_negacao',
                       type='OPERADOR_NEGACAO', children=[filho])
+
+def p_error_operador_negacao(p):
+    """operador_negacao : NAO error  """
+    p[0] = MyNode(name='ERR-SYN-OPERADOR-NEGACAO', type='ERR-SYN-OPERADOR-NEGACAO')
+    print(error_handler.newError(False, 'ERR-SYN-OPERADOR-NEGACAO'))
 
 
 def p_operador_multiplicacao(p):
@@ -687,6 +800,10 @@ def p_operador_multiplicacao(p):
        p[0] = MyNode(name='operador_multiplicacao',
                      type='OPERADOR_MULTIPLICACAO', children=[divide])
 
+def p_error_operador_multiplicacao(p):
+    """operador_multiplicacao : error """
+    p[0] = MyNode(name='ERR-SYN-OPERADOR-MULTIPLICACAO', type='ERR-SYN-OPERADOR-MULTIPLICACAO')
+    print(error_handler.newError(False, 'ERR-SYN-OPERADOR-MULTIPLICACAO'))
 
 def p_fator(p):
     """fator : ABRE_PARENTESE expressao FECHA_PARENTESE
@@ -712,8 +829,11 @@ def p_fator(p):
 
 def p_fator_error(p):
     """fator : ABRE_PARENTESE error FECHA_PARENTESE
+            | error expressao FECHA_PARENTESE
+            | ABRE_PARENTESE expressao error
         """
-ERR-SYN-FATOR
+    p[0] = MyNode(name='ERR-SYN-FATOR', type='ERR-SYN-FATOR')
+    print(error_handler.newError(False, 'ERR-SYN-FATOR'))
 
 def p_numero(p):
     """numero : NUM_INTEIRO
@@ -762,6 +882,10 @@ def p_chamada_funcao(p):
     else:
         p[1].parent = pai
 
+def p_chamada_funcao_error(p):
+    """chamada_funcao : ID ABRE_PARENTESE error FECHA_PARENTESE"""
+    p[0] = MyNode(name='ERR-SYN-CHAMADA-FUNCAO', type='ERR-SYN-CHAMADA-FUNCAO')
+    print(error_handler.newError(False, 'ERR-SYN-CHAMADA-FUNCAO'))
 
 def p_lista_argumentos(p):
     """lista_argumentos : lista_argumentos VIRGULA expressao
@@ -784,10 +908,11 @@ def p_lista_argumentos(p):
 
 def p_lista_argumentos_error(p):
     """lista_argumentos : error VIRGULA expressao
-                    | expressao
-                    | vazio
+                    | lista_argumentos error expressao
+                    | lista_argumentos VIRGULA error
         """
-    # error_handler.newError('ERR-SYN-LISTA-ARGUMENTOS')
+    p[0] = MyNode(name='ERR-SYN-LISTA-ARGUMENTOS', type='ERR-SYN-LISTA-ARGUMENTOS')
+    print(error_handler.newError(False, 'ERR-SYN-LISTA-ARGUMENTOS'))
 
 
 def p_vazio(p):
@@ -806,41 +931,38 @@ def p_error(p):
 
 # Programa principal.
 
-# Build the parser.
-parser = yacc.yacc(method="LALR", optimize=True, start='programa', debug=True,
-                   debuglog=log, write_tables=False, tabmodule='tpp_parser_tab')
+def main():
+    numParameters = len(argv) # Número de parâmetros
 
-if __name__ == "__main__":
-    if(len(sys.argv) < 2):
-        raise TypeError(error_handler.newError('ERR-SYN-USE'))
+    if numParameters != 2:
+        error = "Número de parâmetros Inválido, verifique a sintaxe. "
+        if numParameters < 2: 
+            error += "Envie um arquivo .tpp."
+            raise IOError(error_handler.newError(False, 'ERR-LEX-INVALID-PARAMETER-NOTFOUND'))
+        raise IOError(error_handler.newError(False, 'ERR-LEX-INVALID-PARAMETER'))
 
     aux = argv[1].split('.')
     if aux[-1] != 'tpp':
-      raise IOError(error_handler.newError('ERR-SYN-NOT-TPP'))
+      raise IOError(error_handler.newError(False, 'ERR-SYN-NOT-TPP'))
     elif not os.path.exists(argv[1]):
-        raise IOError(error_handler.newError('ERR-SYN-FILE-NOT-EXISTS'))
+        raise IOError(error_handler.newError(False, 'ERR-SYN-FILE-NOT-EXISTS'))
     else:
         data = open(argv[1])
         source_file = data.read()
         parser.parse(source_file)
 
     if root and root.children != ():
-        print("Generating Syntax Tree Graph...")
-        # DotExporter(root).to_picture(argv[1] + ".ast.png")
         UniqueDotExporter(root).to_picture(argv[1] + ".unique.ast.png")
         DotExporter(root).to_dotfile(argv[1] + ".ast.dot")
         UniqueDotExporter(root).to_dotfile(argv[1] + ".unique.ast.dot")
-        print(RenderTree(root, style=AsciiStyle()).by_attr())
-        print("Graph was generated.\nOutput file: " + argv[1] + ".ast.png")
-
-        # DotExporter(root, graph="graph",
-        #            nodenamefunc=MyNode.nodenamefunc,
-        #            nodeattrfunc=lambda node: 'label=%s' % (node.type),
-        #            edgeattrfunc=MyNode.edgeattrfunc,
-        #            edgetypefunc=MyNode.edgetypefunc).to_picture(argv[1] + ".ast2.png")
-
-        # DotExporter(root, nodenamefunc=lambda node: node.label).to_picture(argv[1] + ".ast3.png")
 
     else:
-        print(error_handler.newError('WAR-SYN-NOT-GEN-SYN-TREE'))
-    print('\n\n')
+        print(error_handler.newError(False, 'WAR-SYN-NOT-GEN-SYN-TREE'))
+    return root
+
+# Build the parser.
+parser = yacc.yacc(method="LALR", optimize=True, start='programa', debug=False,
+                   debuglog=log, write_tables=False, tabmodule='tpp_parser_tab')
+
+if __name__ == "__main__":
+    main()
